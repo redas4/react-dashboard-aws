@@ -1,54 +1,74 @@
 import { Authenticator } from '@aws-amplify/ui-react'
 import '@aws-amplify/ui-react/styles.css'
+import '@mantine/core/styles.css';
+
 import { useEffect, useState } from "react";
 import type { Schema } from "../amplify/data/resource";
 import { generateClient } from "aws-amplify/data";
+import TransactionEntry from './components/transactionEntry';
+import InputModal from './components/inputModal';
+import { useDisclosure } from "@mantine/hooks";
+import { Modal, Button, Flex } from '@mantine/core';
+// import { getUrl } from 'aws-amplify/storage';
 
 const client = generateClient<Schema>();
 
 function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
+  const [transactions, setTransactions] = useState<Array<Schema["Transaction"]["type"]>>([]);
 
   useEffect(() => {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
+    client.models.Transaction.observeQuery().subscribe({
+      next: (data) => setTransactions([...data.items]),
     });
   }, []);
 
-  function createTodo() {
-    client.models.Todo.create({ content: window.prompt("Todo content") });
+  function createTransaction( description: string, amount: number, category: string | null, type: "income" | "expense") {
+    client.models.Transaction.create({ description: description, amount: amount, category: category, type: type });
   }
 
-    
-  function deleteTodo(id: string) {
-    client.models.Todo.delete({ id })
+  function editTransaction(id: string, ) {
+    client.models.Transaction.update({id: id, })
   }
+    
+  function deleteTransaction(id: string) {
+    client.models.Transaction.delete({ id });
+  }
+  const [opened, { open, close }] = useDisclosure(false);
 
   return (
         
     <Authenticator>
       {({ signOut, user }) => (    
       <main>
-      <h1>{user?.signInDetails?.loginId}'s todos</h1>
-      <h1>My todos</h1>
-      <button onClick={createTodo}>+ new</button>
+      <Flex justify="center" align="center" direction="column"  >
+      <h1>{user?.signInDetails?.loginId}'s transaction</h1>
+      <h1>My Transactions</h1>
+
+      <Modal opened={opened} onClose={close} title="Add a Transaction" centered>
+        <InputModal createTransaction={createTransaction} close={close} />
+      </Modal>
+
+      <Button onClick={open}>Add Income or Expense</Button>
+      
+      {/* toggle by name, type , category */}
       <ul>
-        {todos.map((todo) => (
-          <li 
-            onClick={() => deleteTodo(todo.id)}
-            key={todo.id}>
-            {todo.content}
-          </li>
-        ))}
+      {transactions.length > 0 ? (
+        transactions.map((transaction) => (
+          <TransactionEntry
+          key={transaction.id}
+          description={transaction.description!} 
+          type={transaction.type === "income" ? "income" : "expense"}
+          amount={transaction.amount!} 
+          id={transaction.id}
+          onDelete={() => deleteTransaction(transaction.id)}
+        />
+        ))
+       ) : (
+        <li>No transactions found. Create one to get started!</li>
+          )}
       </ul>
-      <div>
-        🥳 App successfully hosted. Try creating a new todo.
-        <br />
-        <a href="https://docs.amplify.aws/react/start/quickstart/#make-frontend-updates">
-          Review next step of this tutorial.
-        </a>
-      </div>
-      <button onClick={signOut}>Sign out</button>
+      <Button onClick={signOut}>Sign out</Button>
+      </Flex>
     </main>    
     )}
     </Authenticator>
